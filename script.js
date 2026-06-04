@@ -1720,6 +1720,7 @@ function loadReportIntoApp(report) {
   DOM.studentClass.value = report.student.class || '';
   DOM.schoolName.value = report.student.school || '';
   DOM.examName.value = report.student.exam || '';
+  DOM.examType.value = report.student.examType || '';
   DOM.academicSession.value = report.student.session || '';
 
   // Fill subjects
@@ -1738,6 +1739,7 @@ function loadReportIntoApp(report) {
   validateSubjects();
 
   displayResults();
+  showSection('results');
   showToast('Report loaded successfully!', 'success');
 }
 
@@ -1765,6 +1767,13 @@ DOM.backFromPlanner.addEventListener('click', () => showSection('results'));
 const reportsNavBtn = document.querySelector('.nav-btn[data-section="reports"]');
 if (reportsNavBtn) {
   reportsNavBtn.addEventListener('click', () => {
+    displaySavedReports();
+    showSection('reports');
+  });
+}
+const mobileReportsNavBtn = document.querySelector('.mobile-nav-btn[data-section="reports"]');
+if (mobileReportsNavBtn) {
+  mobileReportsNavBtn.addEventListener('click', () => {
     displaySavedReports();
     showSection('reports');
   });
