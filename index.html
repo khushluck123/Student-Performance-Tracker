@@ -27,6 +27,7 @@
           <button class="nav-btn" data-section="results" aria-label="Results" disabled>Results</button>
           <button class="nav-btn" data-section="planner" aria-label="Planner" disabled>Planner</button>
           <button class="nav-btn" data-section="reports" aria-label="Reports" disabled>Reports</button>
+          <button class="nav-btn" data-section="planners" aria-label="Planners" disabled>Planners</button>
         </nav>
         <div class="header-actions">
           <button id="mobileMenuBtn" class="icon-btn mobile-menu-btn" aria-label="Toggle navigation menu" title="Menu">
@@ -42,6 +43,7 @@
           <button class="mobile-nav-btn" data-section="results" aria-label="Results" disabled>Results</button>
           <button class="mobile-nav-btn" data-section="planner" aria-label="Planner" disabled>Planner</button>
           <button class="mobile-nav-btn" data-section="reports" aria-label="Reports" disabled>Reports</button>
+          <button class="mobile-nav-btn" data-section="planners" aria-label="Planners" disabled>Planners</button>
         </div>
       </div>
     </header>
@@ -269,6 +271,7 @@
           </div>
 
           <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="savePlannerBtn" style="display:none">Save Planner</button>
             <button type="button" class="btn btn-secondary" id="backFromPlanner">Back to Results</button>
           </div>
         </div>
@@ -287,6 +290,23 @@
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" id="backFromReports">Back to Results</button>
             <button type="button" class="btn btn-danger" id="deleteAllReports" style="display:none">Delete All Reports</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PLANNERS SECTION ==================== -->
+      <section id="section-planners" class="section" aria-label="Saved planners">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Saved Planners</h2>
+            <p class="section-desc">View or delete your previously saved study planners</p>
+          </div>
+
+          <div id="savedPlannersList" class="reports-list"></div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="backFromPlanners">Back to Results</button>
+            <button type="button" class="btn btn-danger" id="deleteAllPlanners" style="display:none">Delete All Planners</button>
           </div>
         </div>
       </section>

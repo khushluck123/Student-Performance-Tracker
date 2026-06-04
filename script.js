@@ -89,6 +89,12 @@ const DOM = {
   backFromReports: $('#backFromReports'),
   deleteAllReports: $('#deleteAllReports'),
 
+  // Planners
+  savedPlannersList: $('#savedPlannersList'),
+  backFromPlanners: $('#backFromPlanners'),
+  deleteAllPlanners: $('#deleteAllPlanners'),
+  savePlannerBtn: $('#savePlannerBtn'),
+
   // Theme & Mobile
   themeToggle: $('#themeToggle'),
   mobileMenuBtn: $('#mobileMenuBtn'),
@@ -1379,7 +1385,12 @@ function generatePlanner() {
   });
 
   DOM.plannerContent.innerHTML = plannerHTML.join('');
+  DOM.savePlannerBtn.style.display = '';
   AppState.plannerGenerated = true;
+  // Enable Planners nav button
+  document.querySelectorAll('.nav-btn[data-section="planners"], .mobile-nav-btn[data-section="planners"]').forEach(btn => {
+    btn.disabled = false;
+  });
   showSection('planner');
 }
 
@@ -1785,6 +1796,100 @@ function loadReportIntoApp(report) {
 }
 
 // ===========================
+// Planner Storage
+// ===========================
+function savePlanner() {
+  if (!AppState.plannerGenerated || !DOM.plannerContent.innerHTML) {
+    showToast('No planner to save. Generate a planner first.', 'warning');
+    return;
+  }
+
+  const planner = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    date: new Date().toISOString(),
+    student: { ...AppState.student },
+    routine: AppState.routine ? { rawText: AppState.routine.rawText, entries: AppState.routine.entries } : null,
+    html: DOM.plannerContent.innerHTML
+  };
+
+  const saved = JSON.parse(localStorage.getItem('spa-planners') || '[]');
+  saved.push(planner);
+  localStorage.setItem('spa-planners', JSON.stringify(saved));
+
+  document.querySelectorAll('.nav-btn[data-section="planners"], .mobile-nav-btn[data-section="planners"]').forEach(btn => {
+    btn.disabled = false;
+  });
+
+  showToast('Planner saved successfully!', 'success');
+}
+
+function loadPlanners() {
+  return JSON.parse(localStorage.getItem('spa-planners') || '[]');
+}
+
+function deletePlanner(id) {
+  const saved = JSON.parse(localStorage.getItem('spa-planners') || '[]');
+  const filtered = saved.filter(p => p.id !== id);
+  localStorage.setItem('spa-planners', JSON.stringify(filtered));
+  displaySavedPlanners();
+  showToast('Planner deleted.', 'success');
+}
+
+function displaySavedPlanners() {
+  const saved = loadPlanners();
+  DOM.savedPlannersList.innerHTML = '';
+
+  if (saved.length === 0) {
+    DOM.savedPlannersList.innerHTML = `
+      <div class="card" style="grid-column:1/-1;text-align:center;">
+        <p style="color:var(--text-muted);">No saved planners yet. Generate a study planner and save it!</p>
+      </div>
+    `;
+    DOM.deleteAllPlanners.style.display = 'none';
+    return;
+  }
+
+  DOM.deleteAllPlanners.style.display = '';
+
+  saved.forEach(planner => {
+    const card = document.createElement('div');
+    card.className = 'report-card';
+    const date = new Date(planner.date);
+    const displayDate = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const routinePreview = planner.routine?.rawText
+      ? planner.routine.rawText.slice(0, 80) + (planner.routine.rawText.length > 80 ? '...' : '')
+      : 'No routine entered';
+
+    card.innerHTML = `
+      <div class="report-card-title">${planner.student.name || 'Student'}</div>
+      <div class="report-card-meta">${displayDate} &middot; ${planner.routine?.entries?.length || 0} class entries</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;padding:0 16px;line-height:1.4;">${routinePreview}</div>
+      <div class="report-card-actions">
+        <button class="btn btn-primary view-planner-btn" data-id="${planner.id}">View</button>
+        <button class="btn btn-danger delete-planner-btn" data-id="${planner.id}">Delete</button>
+      </div>
+    `;
+    DOM.savedPlannersList.appendChild(card);
+
+    card.querySelector('.view-planner-btn').addEventListener('click', () => {
+      DOM.plannerContent.innerHTML = planner.html;
+      AppState.plannerGenerated = true;
+      if (planner.routine) AppState.routine = planner.routine;
+      DOM.savePlannerBtn.style.display = '';
+      showSection('planner');
+    });
+
+    card.querySelector('.delete-planner-btn').addEventListener('click', () => {
+      showModal(
+        'Delete Planner',
+        `Are you sure you want to delete the planner for <strong>${planner.student.name || 'Student'}</strong>?`,
+        () => deletePlanner(planner.id)
+      );
+    });
+  });
+}
+
+// ===========================
 // Event Listeners
 // ===========================
 // Landing
@@ -1803,6 +1908,7 @@ DOM.backFromResults.addEventListener('click', () => showSection('subjects'));
 // Planner — show routine modal first
 DOM.generatePlannerBtn.addEventListener('click', showRoutineModal);
 DOM.backFromPlanner.addEventListener('click', () => showSection('results'));
+DOM.savePlannerBtn.addEventListener('click', savePlanner);
 
 // Reports
 const reportsNavBtn = document.querySelector('.nav-btn[data-section="reports"]');
@@ -1828,6 +1934,34 @@ DOM.deleteAllReports.addEventListener('click', () => {
       localStorage.setItem('spa-reports', '[]');
       displaySavedReports();
       showToast('All reports deleted.', 'success');
+    }
+  );
+});
+
+// Planners
+const plannersNavBtn = document.querySelector('.nav-btn[data-section="planners"]');
+if (plannersNavBtn) {
+  plannersNavBtn.addEventListener('click', () => {
+    displaySavedPlanners();
+    showSection('planners');
+  });
+}
+const mobilePlannersNavBtn = document.querySelector('.mobile-nav-btn[data-section="planners"]');
+if (mobilePlannersNavBtn) {
+  mobilePlannersNavBtn.addEventListener('click', () => {
+    displaySavedPlanners();
+    showSection('planners');
+  });
+}
+DOM.backFromPlanners.addEventListener('click', () => showSection('results'));
+DOM.deleteAllPlanners.addEventListener('click', () => {
+  showModal(
+    'Delete All Planners',
+    'Are you sure you want to delete all saved planners? This action cannot be undone.',
+    () => {
+      localStorage.setItem('spa-planners', '[]');
+      displaySavedPlanners();
+      showToast('All planners deleted.', 'success');
     }
   );
 });
@@ -1916,12 +2050,17 @@ themeObserver.observe(document.documentElement, { attributes: true, attributeFil
 function init() {
   initTheme();
   showSection('landing');
-  // Check for saved student data
+  // Check for saved reports
   const savedReports = loadReports();
   if (savedReports.length > 0) {
-    // Just enable the reports nav
     document.querySelector('.nav-btn[data-section="reports"]').disabled = false;
     document.querySelector('.mobile-nav-btn[data-section="reports"]').disabled = false;
+  }
+  // Check for saved planners
+  const savedPlanners = loadPlanners();
+  if (savedPlanners.length > 0) {
+    document.querySelector('.nav-btn[data-section="planners"]').disabled = false;
+    document.querySelector('.mobile-nav-btn[data-section="planners"]').disabled = false;
   }
 }
 
