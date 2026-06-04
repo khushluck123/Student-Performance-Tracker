@@ -12,6 +12,7 @@ const AppState = {
     class: '',
     school: '',
     exam: '',
+    examType: '',
     session: ''
   },
   subjects: [],
@@ -47,6 +48,8 @@ const DOM = {
   studentClass: $('#studentClass'),
   schoolName: $('#schoolName'),
   examName: $('#examName'),
+  examType: $('#examType'),
+  examTypeInfo: $('#examTypeInfo'),
   academicSession: $('#academicSession'),
   backFromInfo: $('#backFromInfo'),
 
@@ -214,6 +217,35 @@ function updateThemeIcon() {
 }
 
 // ===========================
+// Exam Type Constants
+// ===========================
+const EXAM_TYPES = {
+  'PA1': { label: 'PA1 / Periodic Assessment 1', marks: 30, desc: '30 marks for all classes.', boardOnly: false },
+  'PA2': { label: 'PA2 / Periodic Assessment 2', marks: 30, desc: '30 marks. Not applicable for board classes (10, 12).', boardOnly: false, noBoard: true },
+  'half-yearly': { label: 'Half-Yearly Exam', marks: 80, desc: '80 marks for all subjects.', boardOnly: false },
+  'pre-board': { label: 'Pre-Board Exam', marks: 80, desc: '80 marks. Typically for classes 10 & 12.', boardOnly: true },
+  'board': { label: 'Board Exam', marks: 80, desc: '80 marks (may vary by board/subject).', boardOnly: true },
+  'other': { label: 'Other', marks: 100, desc: 'Custom marks. Enter manually.', boardOnly: false }
+};
+
+function getExamTypeMarks(type) {
+  return EXAM_TYPES[type] ? EXAM_TYPES[type].marks : 100;
+}
+
+function getExamTypeInfo(type, cls) {
+  if (!type || !EXAM_TYPES[type]) return '';
+  const info = EXAM_TYPES[type];
+  let text = info.desc;
+  if (info.noBoard && (cls === '10' || cls === '12')) {
+    text = 'Board classes (10, 12) typically do not have a PA2 exam. Consider selecting a different exam type.';
+  }
+  if (info.boardOnly && cls !== '10' && cls !== '12' && cls) {
+    text = 'This exam type is typically for board classes (10, 12). You can still use it if applicable.';
+  }
+  return text;
+}
+
+// ===========================
 // Utility Functions
 // ===========================
 function getGrade(percentage) {
@@ -251,12 +283,31 @@ DOM.studentForm.addEventListener('submit', (e) => {
   AppState.student.class = DOM.studentClass.value;
   AppState.student.school = DOM.schoolName.value.trim();
   AppState.student.exam = DOM.examName.value.trim();
+  AppState.student.examType = DOM.examType.value;
   AppState.student.session = DOM.academicSession.value.trim();
   showSection('subjects');
   generateSubjectFields();
 });
 
 DOM.backFromInfo.addEventListener('click', () => showSection('landing'));
+
+// Live exam type info on change
+DOM.examType.addEventListener('change', () => {
+  const type = DOM.examType.value;
+  const cls = DOM.studentClass.value;
+  if (!type) { DOM.examTypeInfo.textContent = ''; return; }
+  const info = getExamTypeInfo(type, cls);
+  DOM.examTypeInfo.textContent = info || EXAM_TYPES[type]?.desc || '';
+  DOM.examTypeInfo.style.color = info && info.includes('not') ? 'var(--rose)' : 'var(--text-muted)';
+});
+
+DOM.studentClass.addEventListener('change', () => {
+  if (DOM.examType.value) {
+    const info = getExamTypeInfo(DOM.examType.value, DOM.studentClass.value);
+    DOM.examTypeInfo.textContent = info || EXAM_TYPES[DOM.examType.value]?.desc || '';
+    DOM.examTypeInfo.style.color = info && info.includes('not') ? 'var(--rose)' : 'var(--text-muted)';
+  }
+});
 
 // ===========================
 // Subject Management
@@ -267,20 +318,36 @@ function generateSubjectFields() {
   DOM.subjectsContainer.innerHTML = '';
   const subjects = [];
 
+  // Pre-fill total marks based on exam type
+  const defaultTotal = getExamTypeMarks(AppState.student.examType) || '';
+
   for (let i = 0; i < clamped; i++) {
     subjects.push({
       name: '',
       obtained: '',
-      total: '',
+      total: defaultTotal || '',
       remark: ''
     });
   }
 
   renderSubjectCards(subjects);
   DOM.analyzeBtn.disabled = true;
-  // If returning to re-generate
   AppState.isAnalyzed = false;
   AppState.results = null;
+
+  // Remove any existing exam info banner then add fresh one
+  const existingBanner = document.querySelector('.exam-info-banner');
+  if (existingBanner) existingBanner.remove();
+  const countCard = document.querySelector('.subject-count-card');
+  if (countCard && AppState.student.examType && EXAM_TYPES[AppState.student.examType]) {
+    const info = EXAM_TYPES[AppState.student.examType];
+    const clsNote = getExamTypeInfo(AppState.student.examType, AppState.student.class);
+    const banner = document.createElement('div');
+    banner.className = 'exam-info-banner';
+    banner.style.cssText = 'margin:0 auto 20px;max-width:700px;padding:14px 18px;background:var(--emerald-light);border-radius:var(--radius-sm);font-size:0.85rem;color:var(--emerald-dark);';
+    banner.innerHTML = `<strong>\uD83D\uDCDD ${info.label}</strong> &mdash; ${info.desc} Total marks pre-filled as <strong>${info.marks}</strong> per subject.${clsNote ? '<br><span style="opacity:0.8;">' + clsNote + '</span>' : ''}`;
+    countCard.parentNode.insertBefore(banner, countCard.nextSibling);
+  }
 }
 
 function renderSubjectCards(subjects) {
@@ -930,47 +997,130 @@ function renderCharts(result) {
 }
 
 // ===========================
-// Routine Modal — Collect Daily Routine
+// Natural Language Routine Parser
+// ===========================
+function parseRoutineText(text) {
+  const entries = [];
+  const knownSubjects = AppState.subjects.map(s => s.name.toLowerCase().trim());
+  const commonSubjects = ['mathematics', 'math', 'maths', 'english', 'science', 'physics', 'chemistry', 'biology',
+    'history', 'geography', 'civics', 'social science', 'social studies', 'sst', 'computer science', 'computer',
+    'python', 'programming', 'ip', 'informatics practices', 'physical education', 'pe', 'art', 'music', 'dance',
+    'economics', 'business studies', 'accountancy', 'statistics', 'psychology', 'sociology', 'political science'];
+  const allSubjects = [...new Set([...knownSubjects, ...commonSubjects])];
+
+  const dayMap = {
+    monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday',
+    friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday',
+    mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', thurs: 'Thursday',
+    fri: 'Friday', sat: 'Saturday', sun: 'Sunday'
+  };
+
+  function parseTime(str) {
+    const t = str.toLowerCase().replace(/\s/g, '');
+    const match = t.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/);
+    if (!match) return null;
+    let h = parseInt(match[1]);
+    const m = match[2] ? parseInt(match[2]) : 0;
+    const isPM = match[3].replace(/\./g, '')[0] === 'p';
+    if (isPM && h !== 12) h += 12;
+    if (!isPM && h === 12) h = 0;
+    return h * 60 + m;
+  }
+
+  function findSubject(clause) {
+    const lower = clause.toLowerCase();
+    for (const subj of allSubjects) {
+      if (lower.includes(subj)) return subj;
+    }
+    if (lower.includes('class') || lower.includes('lecture') || lower.includes('lesson')) {
+      for (const subj of allSubjects) {
+        if (lower.includes(subj)) return subj;
+      }
+    }
+    return null;
+  }
+
+  function findDays(clause) {
+    const lower = clause.toLowerCase();
+    const found = [];
+    for (const [key, val] of Object.entries(dayMap)) {
+      if (lower.includes(key)) found.push(val);
+    }
+    return [...new Set(found)];
+  }
+
+  // Split by ".", "and", "&", "," then process each clause
+  const clauses = text.split(/[.]+/).flatMap(s => s.split(/\band\b|&|,/)).map(s => s.trim()).filter(Boolean);
+
+  for (let clause of clauses) {
+    if (clause.length < 5) continue;
+    const days = findDays(clause);
+    if (days.length === 0) continue;
+    const subject = findSubject(clause);
+    if (!subject) continue;
+
+    // Find time patterns: from X to Y, or at X
+    const fromMatch = clause.match(/from\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
+    const toMatch = clause.match(/to\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
+    const atMatch = clause.match(/(?:at|@)\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
+
+    let startTime, endTime;
+    if (fromMatch) {
+      startTime = parseTime(fromMatch[1]);
+      if (toMatch) {
+        endTime = parseTime(toMatch[1]);
+      } else {
+        endTime = startTime + 60;
+      }
+    } else if (atMatch) {
+      startTime = parseTime(atMatch[1]);
+      endTime = startTime + 60;
+    } else {
+      continue;
+    }
+
+    if (startTime === null) continue;
+    if (endTime === null) endTime = startTime + 60;
+
+    for (const day of days) {
+      entries.push({ day, subject, startTime, endTime, original: clause.trim() });
+    }
+  }
+
+  return entries;
+}
+
+// ===========================
+// Routine Modal — Natural Language Input
 // ===========================
 function showRoutineModal() {
   if (!AppState.results) return;
 
   const r = AppState.results;
-  const prev = AppState.routine || { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
+  const prevText = AppState.routine?.rawText || '';
+  const subjectNames = AppState.subjects.map(s => s.name).join(', ');
 
   const body = `
-    <div style="margin-bottom:16px;color:var(--text-secondary);font-size:0.9rem;">
-      Tell us about your daily schedule so we can create a realistic study plan tailored to your routine.
+    <div style="margin-bottom:16px;color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+      Describe your weekly class schedule in plain English. Include days, subjects, and times.<br>
+      <strong style="color:var(--text-primary);">Example:</strong>
+      <span style="color:var(--text-muted);font-size:0.85rem;">
+        "I have English on Tuesday and Thursday at 3:30 p.m., and Science on Monday 10 a.m. to 12 p.m."
+      </span>
     </div>
-    <div id="routineForm" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div id="routineForm">
       <div class="form-group">
-        <label for="routineWakeUp" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Wake Up Time</label>
-        <input type="time" id="routineWakeUp" value="${prev.wakeUp}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+        <label for="routineText" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Your Schedule</label>
+        <textarea id="routineText" rows="4" placeholder="e.g. I have Mathematics class on Monday and Wednesday at 9:00 am. English on Tuesday and Thursday at 3:30 p.m. Science on Friday from 2 p.m. to 3 p.m." style="padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;width:100%;resize:vertical;outline:none;transition:border-color var(--transition),box-shadow var(--transition);">${prevText}</textarea>
       </div>
-      <div class="form-group">
-        <label for="routineSleep" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Sleep Time</label>
-        <input type="time" id="routineSleep" value="${prev.sleep}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      <div style="margin-top:10px;font-size:0.8rem;color:var(--text-muted);" id="routinePreview">
+        Your subjects: <strong>${subjectNames || '(none added yet)'}</strong>
       </div>
-      <div class="form-group">
-        <label for="routineStart" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Study Start Time</label>
-        <input type="time" id="routineStart" value="${prev.startTime}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
-      </div>
-      <div class="form-group">
-        <label for="routineStudyLen" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Session Length (min)</label>
-        <input type="number" id="routineStudyLen" value="${prev.studyMins}" min="15" max="120" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
-      </div>
-      <div class="form-group">
-        <label for="routineBreakLen" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Break Length (min)</label>
-        <input type="number" id="routineBreakLen" value="${prev.breakMins}" min="5" max="60" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
-      </div>
-    </div>
-    <div style="margin-top:8px;font-size:0.8rem;color:var(--text-muted);">
-      <span id="routineSummary">${r.weakCount > 0 ? r.weakCount + ' weak subject(s) to focus on' : 'Maintain your strong performance'}</span>
+      <div id="parsedEntries" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
   `;
 
-  // Replace modal body content with routine form
-  DOM.modalTitle.textContent = '\u23F0 Your Daily Routine';
+  DOM.modalTitle.textContent = '\uD83D\uDCC5 Your Weekly Schedule';
   DOM.modalBody.innerHTML = body;
   DOM.modalConfirm.textContent = 'Generate Plan';
   DOM.modalCancel.textContent = 'Skip';
@@ -978,33 +1128,42 @@ function showRoutineModal() {
   DOM.modalOverlay.classList.add('active');
   DOM.modalOverlay.setAttribute('aria-hidden', 'false');
 
-  // Focus first input
-  setTimeout(() => { const el = document.getElementById('routineWakeUp'); if (el) el.focus(); }, 100);
+  const textarea = document.getElementById('routineText');
+  const previewEl = document.getElementById('parsedEntries');
 
-  // Confirm handler
+  // Live preview as user types
+  if (textarea) {
+    textarea.focus();
+    textarea.addEventListener('input', () => {
+      const val = textarea.value.trim();
+      if (val.length < 10) { previewEl.innerHTML = ''; return; }
+      const parsed = parseRoutineText(val);
+      if (parsed.length === 0) {
+        previewEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.78rem;">Could not detect schedule. Try the example format above.</span>';
+      } else {
+        previewEl.innerHTML = parsed.map(e =>
+          `<span style="background:var(--emerald-light);color:var(--emerald-dark);padding:4px 10px;border-radius:50px;font-size:0.78rem;font-weight:500;">${e.day} &middot; ${e.subject} &middot; ${formatTime(e.startTime)}-${formatTime(e.endTime)}</span>`
+        ).join('');
+      }
+    });
+  }
+
   DOM.modalConfirm.onclick = () => {
-    const wakeUp = document.getElementById('routineWakeUp')?.value || '06:00';
-    const sleep = document.getElementById('routineSleep')?.value || '22:00';
-    const startTime = document.getElementById('routineStart')?.value || '16:00';
-    const studyMins = parseInt(document.getElementById('routineStudyLen')?.value) || 50;
-    const breakMins = parseInt(document.getElementById('routineBreakLen')?.value) || 10;
-
-    AppState.routine = { wakeUp, sleep, startTime, studyMins, breakMins };
+    const rawText = document.getElementById('routineText')?.value.trim() || '';
+    let entries = [];
+    if (rawText.length >= 10) {
+      entries = parseRoutineText(rawText);
+    }
+    AppState.routine = { rawText, entries };
     DOM.modalOverlay.classList.remove('active');
     DOM.modalOverlay.setAttribute('aria-hidden', 'true');
     generatePlanner();
   };
 
-  // Cancel/Skip handler
   const skipPlanner = () => {
     DOM.modalOverlay.classList.remove('active');
     DOM.modalOverlay.setAttribute('aria-hidden', 'true');
-    if (AppState.routine) {
-      generatePlanner();
-    } else {
-      AppState.routine = { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
-      generatePlanner();
-    }
+    generatePlanner();
   };
   DOM.modalCancel.onclick = skipPlanner;
   DOM.modalClose.onclick = skipPlanner;
@@ -1012,6 +1171,15 @@ function showRoutineModal() {
     if (e.target === DOM.modalOverlay) skipPlanner();
   };
   DOM.modalConfirm.focus();
+}
+
+function formatTime(mins) {
+  if (mins == null) return '';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const period = h >= 12 ? 'p.m.' : 'a.m.';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return h12 + (m > 0 ? ':' + String(m).padStart(2, '0') : '') + ' ' + period;
 }
 
 // ===========================
@@ -1026,14 +1194,11 @@ function generatePlanner() {
   const weakNames = weakSubjects.map(s => s.name);
   const strongNames = r.subjects.filter(s => s.percentage >= 70).map(s => s.name);
   const allNames = r.subjects.map(s => s.name);
-  const routine = AppState.routine || { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
+  const scheduleEntries = AppState.routine?.entries || [];
 
-  // Build time slots from routine
-  function timeToMinutes(t) {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  }
+  // Helper
   function minutesToTime(mins) {
+    if (mins == null) return '';
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     const period = h >= 12 ? 'PM' : 'AM';
@@ -1041,60 +1206,101 @@ function generatePlanner() {
     return h12 + ':' + String(m).padStart(2, '0') + ' ' + period;
   }
 
-  const startMins = timeToMinutes(routine.startTime);
-  const studyLen = routine.studyMins;
-  const breakLen = routine.breakMins;
-  const sleepMins = timeToMinutes(routine.sleep);
-  const slotCount = Math.min(7, Math.floor((sleepMins - startMins) / (studyLen + breakLen)));
-
-  const hours = [];
-  let current = startMins;
-  for (let i = 0; i < slotCount; i++) {
-    hours.push(minutesToTime(current));
-    current += studyLen + breakLen;
-  }
-
   const plannerHTML = [];
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Default free time range
+  const freeStart = 16 * 60; // 4:00 PM
+  const freeEnd = 22 * 60;   // 10:00 PM
 
   // Daily Schedule
-  let scheduleHTML = `<div class="card"><h3 style="margin-bottom:16px;">\uD83D\uDCC5 Daily Study Schedule</h3>`;
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  let scheduleHTML = `<div class="card"><h3 style="margin-bottom:16px;">\uD83D\uDCC5 Weekly Study Schedule</h3>`;
+
+  // If user entered their class schedule, show a note
+  if (scheduleEntries.length > 0) {
+    scheduleHTML += `<div style="margin-bottom:16px;padding:12px 16px;background:var(--emerald-light);border-radius:var(--radius-sm);font-size:0.85rem;color:var(--emerald-dark);">\u2705 Your classes have been factored in. Study sessions fill the remaining free time.</div>`;
+  }
+
   days.forEach(day => {
     scheduleHTML += `<div class="planner-day"><div class="planner-day-header">${day}</div>`;
-    let slotIdx = 0;
-    for (let h = 0; h < hours.length; h++) {
-      const startTime = hours[h];
-      const startM = timeToMinutes(routine.startTime) + h * (studyLen + breakLen);
-      const studyEndM = startM + studyLen;
-      const breakEndM = startM + studyLen + breakLen;
-      const studyEnd = minutesToTime(studyEndM);
-      const breakEnd = minutesToTime(breakEndM);
-      const isBreak = h % 2 === 1;
-      let activity, displayEnd, displayTime, isLast;
-      if (h === hours.length - 1) {
-        // Last slot: study only, no break
-        displayEnd = minutesToTime(startM + studyLen);
-        isLast = true;
-        activity = `${'\uD83D\uDCD6'} Study ${allNames[(slotIdx + days.indexOf(day)) % allNames.length]}${weakNames.includes(allNames[(slotIdx + days.indexOf(day)) % allNames.length]) ? ' (Focus Area)' : ''}`;
-        displayTime = `${startTime} - ${displayEnd}`;
-        slotIdx++;
-      } else if (isBreak) {
-        activity = '\u2615 Break Time \u2014 Relax and recharge';
-        displayTime = `${startTime} - ${breakEnd}`;
-      } else {
-        const subjIdx = (slotIdx + days.indexOf(day)) % allNames.length;
-        const subjName = allNames[subjIdx];
-        const isWeak = weakNames.includes(subjName);
-        activity = `${isWeak ? '\u26A0\uFE0F ' : '\uD83D\uDCD6 '}Study ${subjName}${isWeak ? ' (Focus Area)' : ''}`;
-        displayTime = `${startTime} - ${studyEnd}`;
-        slotIdx++;
+
+    // Get classes scheduled for this day from parsed entries
+    const dayClasses = scheduleEntries.filter(e => e.day === day).sort((a, b) => a.startTime - b.startTime);
+
+    if (dayClasses.length > 0) {
+      // Show classes as blocked time
+      dayClasses.forEach(cls => {
+        scheduleHTML += `
+          <div class="planner-slot" style="background:var(--bg-secondary);border-radius:6px;margin-bottom:4px;">
+            <span class="planner-time" style="color:var(--text-muted);font-size:0.8rem;">${minutesToTime(cls.startTime)} - ${minutesToTime(cls.endTime)}</span>
+            <span class="planner-activity"><strong>\uD83C\uDFEB ${cls.subject.charAt(0).toUpperCase() + cls.subject.slice(1)} Class</strong></span>
+          </div>
+        `;
+      });
+    }
+
+    // Fill remaining free time with study sessions
+    const occupied = dayClasses.map(c => ({ start: c.startTime, end: c.endTime }));
+    occupied.sort((a, b) => a.start - b.start);
+
+    // Merge occupied intervals and find free gaps
+    let freeSlots = [{ start: freeStart, end: freeEnd }];
+    for (const occ of occupied) {
+      const newFree = [];
+      for (const slot of freeSlots) {
+        if (occ.end <= slot.start || occ.start >= slot.end) {
+          newFree.push(slot);
+        } else {
+          if (occ.start > slot.start) newFree.push({ start: slot.start, end: occ.start });
+          if (occ.end < slot.end) newFree.push({ start: occ.end, end: slot.end });
+        }
       }
+      freeSlots = newFree;
+    }
+
+    // Each free slot generates a study block (45 min) followed by a break (10 min)
+    let slotIdx = days.indexOf(day);
+    let hasStudy = false;
+    for (const slot of freeSlots) {
+      let pos = slot.start;
+      while (pos + 45 <= slot.end) {
+        const studyEnd = Math.min(pos + 45, slot.end);
+        const subjName = allNames[slotIdx % allNames.length];
+        const isWeak = weakNames.includes(subjName);
+        scheduleHTML += `
+          <div class="planner-slot">
+            <span class="planner-time">${minutesToTime(pos)} - ${minutesToTime(studyEnd)}</span>
+            <span class="planner-activity">${isWeak ? '\u26A0\uFE0F ' : '\uD83D\uDCD6 '}Study ${subjName}${isWeak ? ' (Focus Area)' : ''}</span>
+          </div>`;
+        hasStudy = true;
+        slotIdx++;
+        pos = studyEnd;
+        // Add break if there's room
+        if (pos + 10 <= slot.end) {
+          const breakEnd = Math.min(pos + 10, slot.end);
+          scheduleHTML += `
+            <div class="planner-slot">
+              <span class="planner-time">${minutesToTime(pos)} - ${minutesToTime(breakEnd)}</span>
+              <span class="planner-activity">\u2615 Break \u2014 Relax and recharge</span>
+            </div>`;
+          pos = breakEnd;
+        }
+      }
+    }
+
+    if (!hasStudy && dayClasses.length === 0) {
+      // No classes and no study slots — show as free
       scheduleHTML += `
         <div class="planner-slot">
-          <span class="planner-time">${displayTime}</span>
-          <span class="planner-activity">${activity}</span>
-        </div>
-      `;
+          <span class="planner-time" style="color:var(--text-muted);">All day</span>
+          <span class="planner-activity" style="color:var(--text-muted);">\uD83C\uDFE1 Free day \u2014 use for revision and rest</span>
+        </div>`;
+    } else if (!hasStudy) {
+      scheduleHTML += `
+        <div class="planner-slot">
+          <span class="planner-time" style="color:var(--text-muted);">Free</span>
+          <span class="planner-activity" style="color:var(--text-muted);">\u2705 All time accounted for by classes</span>
+        </div>`;
     }
     scheduleHTML += `</div>`;
   });

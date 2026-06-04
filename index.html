@@ -121,6 +121,19 @@
                   <input type="text" id="examName" placeholder="e.g. Final Term" required>
                 </div>
                 <div class="form-group">
+                  <label for="examType">Exam Type</label>
+                  <select id="examType">
+                    <option value="">Select exam type (optional)</option>
+                    <option value="PA1">PA1 / Periodic Assessment 1</option>
+                    <option value="PA2">PA2 / Periodic Assessment 2</option>
+                    <option value="half-yearly">Half-Yearly Exam</option>
+                    <option value="pre-board">Pre-Board Exam</option>
+                    <option value="board">Board Exam</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <div id="examTypeInfo" style="margin-top:6px;font-size:0.78rem;color:var(--text-muted);min-height:18px;"></div>
+                </div>
+                <div class="form-group">
                   <label for="academicSession">Academic Session</label>
                   <input type="text" id="academicSession" placeholder="e.g. 2025-2026" required>
                 </div>
