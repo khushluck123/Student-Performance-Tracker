@@ -1015,29 +1015,16 @@ function parseRoutineText(text) {
     fri: 'Friday', sat: 'Saturday', sun: 'Sunday'
   };
 
-  function parseTime(str) {
-    const t = str.toLowerCase().replace(/\s/g, '');
-    const match = t.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/);
-    if (!match) return null;
-    let h = parseInt(match[1]);
-    const m = match[2] ? parseInt(match[2]) : 0;
-    const isPM = match[3].replace(/\./g, '')[0] === 'p';
-    if (isPM && h !== 12) h += 12;
-    if (!isPM && h === 12) h = 0;
-    return h * 60 + m;
-  }
+  // Normalize "a.m." / "p.m." to "am" / "pm" before any splitting/parsing
+  text = text.replace(/a\.m\.?/gi, 'am').replace(/p\.m\.?/gi, 'pm');
 
-  function findSubject(clause) {
+  function findAllSubjects(clause) {
     const lower = clause.toLowerCase();
+    const found = [];
     for (const subj of allSubjects) {
-      if (lower.includes(subj)) return subj;
+      if (lower.includes(subj)) found.push(subj);
     }
-    if (lower.includes('class') || lower.includes('lecture') || lower.includes('lesson')) {
-      for (const subj of allSubjects) {
-        if (lower.includes(subj)) return subj;
-      }
-    }
-    return null;
+    return [...new Set(found)];
   }
 
   function findDays(clause) {
@@ -1049,41 +1036,57 @@ function parseRoutineText(text) {
     return [...new Set(found)];
   }
 
-  // Split by ".", "and", "&", "," then process each clause
-  const clauses = text.split(/[.]+/).flatMap(s => s.split(/\band\b|&|,/)).map(s => s.trim()).filter(Boolean);
+  // Split by "." and "," then process each clause (NOT "and" — it connects days like "Tuesday and Thursday")
+  const clauses = text.split(/[.,]+/).map(s => s.trim()).filter(Boolean);
 
   for (let clause of clauses) {
     if (clause.length < 5) continue;
     const days = findDays(clause);
     if (days.length === 0) continue;
-    const subject = findSubject(clause);
-    if (!subject) continue;
+    const subjects = findAllSubjects(clause);
+    if (subjects.length === 0) continue;
 
-    // Find time patterns: from X to Y, or at X
-    const fromMatch = clause.match(/from\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
-    const toMatch = clause.match(/to\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
-    const atMatch = clause.match(/(?:at|@)\s+([\d:.\s]+(?:am|pm|a\.m\.|p\.m\.))/i);
+    // Find all time expressions in the clause
+    const timeRegex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi;
+    const allTimes = [];
+    let tm;
+    while ((tm = timeRegex.exec(clause)) !== null) {
+      let h = parseInt(tm[1]);
+      const m = tm[2] ? parseInt(tm[2]) : 0;
+      const period = tm[3].toLowerCase();
+      if (period[0] === 'p' && h !== 12) h += 12;
+      if (period[0] === 'a' && h === 12) h = 0;
+      allTimes.push(h * 60 + m);
+    }
+    if (allTimes.length === 0) continue;
 
     let startTime, endTime;
-    if (fromMatch) {
-      startTime = parseTime(fromMatch[1]);
-      if (toMatch) {
-        endTime = parseTime(toMatch[1]);
-      } else {
-        endTime = startTime + 60;
-      }
-    } else if (atMatch) {
-      startTime = parseTime(atMatch[1]);
-      endTime = startTime + 60;
+    const hasFrom = /\bfrom\b/i.test(clause);
+    const hasAt = /\bat\b/i.test(clause);
+
+    if (hasFrom && allTimes.length >= 2) {
+      startTime = allTimes[0];
+      endTime = allTimes[1];
+    } else if (hasFrom) {
+      startTime = allTimes[0];
+      endTime = allTimes[0] + 60;
+    } else if (allTimes.length >= 2) {
+      // Two times without "from" — treat as a range (e.g. "10 am to 12 pm")
+      startTime = allTimes[0];
+      endTime = allTimes[1];
+    } else if (hasAt) {
+      startTime = allTimes[0];
+      endTime = allTimes[0] + 60;
     } else {
-      continue;
+      // Bare time — assume 1-hour session at that time
+      startTime = allTimes[0];
+      endTime = allTimes[0] + 60;
     }
 
-    if (startTime === null) continue;
-    if (endTime === null) endTime = startTime + 60;
-
-    for (const day of days) {
-      entries.push({ day, subject, startTime, endTime, original: clause.trim() });
+    for (const subject of subjects) {
+      for (const day of days) {
+        entries.push({ day, subject, startTime, endTime, original: clause.trim() });
+      }
     }
   }
 
