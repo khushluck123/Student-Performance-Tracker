@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Performance Analyzer & Study Coach</title>
+  <meta name="description" content="Analyze your academic performance and receive personalized improvement strategies.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Accessibility skip link -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Header / Navigation -->
+    <header class="header" role="banner">
+      <div class="container header-inner">
+        <div class="logo">
+          <span class="logo-icon" aria-hidden="true">&#9670;</span>
+          <span class="logo-text">EduCoach</span>
+        </div>
+        <nav class="nav-links" role="navigation" aria-label="Main navigation">
+          <button class="nav-btn" data-section="home" aria-label="Home">Home</button>
+          <button class="nav-btn" data-section="results" aria-label="Results" disabled>Results</button>
+          <button class="nav-btn" data-section="planner" aria-label="Planner" disabled>Planner</button>
+          <button class="nav-btn" data-section="reports" aria-label="Reports" disabled>Reports</button>
+        </nav>
+        <div class="header-actions">
+          <button id="mobileMenuBtn" class="icon-btn mobile-menu-btn" aria-label="Toggle navigation menu" title="Menu">
+            <span class="hamburger-icon" aria-hidden="true">&#9776;</span>
+          </button>
+          <button id="themeToggle" class="icon-btn" aria-label="Toggle dark mode" title="Toggle theme">
+            <span class="theme-icon" aria-hidden="true">&#9790;</span>
+          </button>
+        </div>
+        <!-- Mobile Navigation -->
+        <div id="mobileNav" class="mobile-nav" role="navigation" aria-label="Mobile navigation" aria-hidden="true">
+          <button class="mobile-nav-btn" data-section="home" aria-label="Home">Home</button>
+          <button class="mobile-nav-btn" data-section="results" aria-label="Results" disabled>Results</button>
+          <button class="mobile-nav-btn" data-section="planner" aria-label="Planner" disabled>Planner</button>
+          <button class="mobile-nav-btn" data-section="reports" aria-label="Reports" disabled>Reports</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" role="main">
+      <!-- ==================== LANDING SECTION ==================== -->
+      <section id="section-landing" class="section active" aria-label="Landing page">
+        <div class="container">
+          <div class="hero">
+            <div class="hero-content">
+              <div class="hero-badge">Smart Analysis</div>
+              <h1 class="hero-title">Student Performance<br>Analyzer &amp; Study Coach</h1>
+              <p class="hero-subtitle">Analyze your academic performance and receive personalized improvement strategies.</p>
+              <button id="startAnalysis" class="btn btn-primary btn-lg">
+                <span class="btn-text">Start Analysis</span>
+                <span class="btn-icon" aria-hidden="true">&#8594;</span>
+              </button>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+              <div class="hero-card hero-card-1">
+                <div class="hero-card-icon">&#9733;</div>
+                <div class="hero-card-label">Performance</div>
+                <div class="hero-card-value">92%</div>
+              </div>
+              <div class="hero-card hero-card-2">
+                <div class="hero-card-icon">&#9889;</div>
+                <div class="hero-card-label">Study Plan</div>
+                <div class="hero-card-value">Ready</div>
+              </div>
+              <div class="hero-card hero-card-3">
+                <div class="hero-card-icon">&#127942;</div>
+                <div class="hero-card-label">Achievements</div>
+                <div class="hero-card-value">4</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="scroll-indicator" aria-hidden="true">
+          <span>Scroll to begin</span>
+          <div class="scroll-arrow">&#8595;</div>
+        </div>
+      </section>
+
+      <!-- ==================== STUDENT INFO SECTION ==================== -->
+      <section id="section-info" class="section" aria-label="Student information">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Student Information</h2>
+            <p class="section-desc">Enter your academic details to get started</p>
+          </div>
+          <div class="card form-card">
+            <form id="studentForm" novalidate>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="studentName">Student Name</label>
+                  <input type="text" id="studentName" placeholder="e.g. Rahul Sharma" required autocomplete="name">
+                </div>
+                <div class="form-group">
+                  <label for="studentClass">Class</label>
+                  <select id="studentClass" required>
+                    <option value="">Select class</option>
+                    <option value="6">Class 6</option>
+                    <option value="7">Class 7</option>
+                    <option value="8">Class 8</option>
+                    <option value="9">Class 9</option>
+                    <option value="10">Class 10</option>
+                    <option value="11">Class 11</option>
+                    <option value="12">Class 12</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="schoolName">School Name</label>
+                  <input type="text" id="schoolName" placeholder="e.g. Delhi Public School" required>
+                </div>
+                <div class="form-group">
+                  <label for="examName">Exam Name</label>
+                  <input type="text" id="examName" placeholder="e.g. Final Term" required>
+                </div>
+                <div class="form-group">
+                  <label for="academicSession">Academic Session</label>
+                  <input type="text" id="academicSession" placeholder="e.g. 2025-2026" required>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="backFromInfo">Back</button>
+                <button type="submit" class="btn btn-primary">Continue to Subjects</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SUBJECTS SECTION ==================== -->
+      <section id="section-subjects" class="section" aria-label="Subject management">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Subject Management</h2>
+            <p class="section-desc">Add the subjects you want to analyze</p>
+          </div>
+
+          <div class="card subject-count-card">
+            <div class="form-group">
+              <label for="numSubjects">Number of Subjects</label>
+              <div class="input-group">
+                <input type="number" id="numSubjects" min="1" max="20" value="5" aria-label="Number of subjects">
+                <button id="generateSubjects" class="btn btn-primary">Generate</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="subjectsContainer" class="subjects-grid" role="list" aria-label="Subjects list"></div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="backFromSubjects">Back</button>
+            <button type="button" class="btn btn-primary" id="analyzeBtn" disabled>Analyze Performance</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== RESULTS SECTION ==================== -->
+      <section id="section-results" class="section" aria-label="Results and analysis">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Performance Analysis</h2>
+            <p class="section-desc">Comprehensive analysis of your academic performance</p>
+          </div>
+
+          <!-- Overall Stats -->
+          <div class="stats-grid" id="overallStats">
+            <div class="stat-card">
+              <div class="stat-label">Overall Percentage</div>
+              <div class="stat-value" id="overallPercentage">0%</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="overallProgress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Overall Grade</div>
+              <div class="stat-value grade-value" id="overallGrade">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Performance Level</div>
+              <div class="stat-value" id="performanceLevel">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Subjects</div>
+              <div class="stat-value" id="totalSubjects">0</div>
+            </div>
+          </div>
+
+          <!-- Subject Cards -->
+          <h3 class="subsection-title">Subject-wise Breakdown</h3>
+          <div class="subjects-cards" id="subjectCards"></div>
+
+          <!-- Charts -->
+          <h3 class="subsection-title">Charts &amp; Analytics</h3>
+          <div class="charts-grid">
+            <div class="chart-card">
+              <h4 class="chart-title">Bar Chart</h4>
+              <div class="chart-wrapper">
+                <canvas id="barChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h4 class="chart-title">Pie Chart</h4>
+              <div class="chart-wrapper">
+                <canvas id="pieChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-card chart-full">
+              <h4 class="chart-title">Performance Distribution</h4>
+              <div class="chart-wrapper">
+                <canvas id="distributionChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Insights -->
+          <h3 class="subsection-title">AI-Like Insights</h3>
+          <div class="insights-grid" id="insightsContainer"></div>
+
+          <!-- Study Coach -->
+          <h3 class="subsection-title">Intelligent Study Coach</h3>
+          <div class="coach-container" id="coachContainer"></div>
+
+          <!-- Achievements -->
+          <h3 class="subsection-title">Achievements</h3>
+          <div class="badges-container" id="badgesContainer"></div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="backFromResults">Back to Subjects</button>
+            <button type="button" class="btn btn-accent" id="generatePlannerBtn">Generate Study Planner</button>
+            <button type="button" class="btn btn-primary" id="saveReportBtn">Save Report</button>
+            <button type="button" class="btn btn-primary" id="downloadPdfBtn">Download PDF Report</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PLANNER SECTION ==================== -->
+      <section id="section-planner" class="section" aria-label="Study planner">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Study Planner</h2>
+            <p class="section-desc">Personalized daily and weekly study schedule</p>
+          </div>
+
+          <div class="planner-content" id="plannerContent">
+            <div class="card">
+              <p class="text-center text-muted">Click "Generate Study Planner" from the Results section to create your personalized plan.</p>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="backFromPlanner">Back to Results</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== REPORTS SECTION ==================== -->
+      <section id="section-reports" class="section" aria-label="Saved reports">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Saved Reports</h2>
+            <p class="section-desc">View, load, or delete your previously saved reports</p>
+          </div>
+
+          <div id="savedReportsList" class="reports-list"></div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="backFromReports">Back to Results</button>
+            <button type="button" class="btn btn-danger" id="deleteAllReports" style="display:none">Delete All Reports</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+      <div class="container">
+        <p>&copy; 2026 EduCoach &mdash; Student Performance Analyzer &amp; Study Coach</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Confirm</h3>
+        <button class="modal-close" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+        <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script>window.jsPDF = window.jspdf.jsPDF;</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
