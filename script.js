@@ -1015,11 +1015,12 @@ function parseRoutineText(text) {
     fri: 'Friday', sat: 'Saturday', sun: 'Sunday'
   };
 
-  // Normalize "a.m." / "p.m." to "am" / "pm" before any splitting/parsing
+  // Normalize time markers and dashes
   text = text.replace(/a\.m\.?/gi, 'am').replace(/p\.m\.?/gi, 'pm');
+  text = text.replace(/[–—−]/g, ' to ');
 
-  function findAllSubjects(clause) {
-    const lower = clause.toLowerCase();
+  function findAllSubjects(str) {
+    const lower = str.toLowerCase();
     const found = [];
     for (const subj of allSubjects) {
       if (lower.includes(subj)) found.push(subj);
@@ -1027,8 +1028,8 @@ function parseRoutineText(text) {
     return [...new Set(found)];
   }
 
-  function findDays(clause) {
-    const lower = clause.toLowerCase();
+  function findDays(str) {
+    const lower = str.toLowerCase();
     const found = [];
     for (const [key, val] of Object.entries(dayMap)) {
       if (lower.includes(key)) found.push(val);
@@ -1036,56 +1037,92 @@ function parseRoutineText(text) {
     return [...new Set(found)];
   }
 
-  // Split by "." and "," then process each clause (NOT "and" — it connects days like "Tuesday and Thursday")
-  const clauses = text.split(/[.,]+/).map(s => s.trim()).filter(Boolean);
-
-  for (let clause of clauses) {
-    if (clause.length < 5) continue;
-    const days = findDays(clause);
-    if (days.length === 0) continue;
-    const subjects = findAllSubjects(clause);
-    if (subjects.length === 0) continue;
-
-    // Find all time expressions in the clause
+  function findAllTimes(str) {
     const timeRegex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi;
-    const allTimes = [];
+    const result = [];
     let tm;
-    while ((tm = timeRegex.exec(clause)) !== null) {
+    while ((tm = timeRegex.exec(str)) !== null) {
       let h = parseInt(tm[1]);
       const m = tm[2] ? parseInt(tm[2]) : 0;
       const period = tm[3].toLowerCase();
       if (period[0] === 'p' && h !== 12) h += 12;
       if (period[0] === 'a' && h === 12) h = 0;
-      allTimes.push(h * 60 + m);
+      result.push(h * 60 + m);
     }
-    if (allTimes.length === 0) continue;
+    return result;
+  }
 
-    let startTime, endTime;
-    const hasFrom = /\bfrom\b/i.test(clause);
-    const hasAt = /\bat\b/i.test(clause);
+  function pairTimes(times, groupStr) {
+    if (times.length === 0) return null;
+    const hasTo = /\bto\b/i.test(groupStr);
+    if (times.length >= 2) {
+      if (hasTo || times[0] < times[1]) {
+        return { start: times[0], end: times[1] };
+      }
+      return { start: times[0], end: times[0] + 60 };
+    }
+    return { start: times[0], end: times[0] + 60 };
+  }
 
-    if (hasFrom && allTimes.length >= 2) {
-      startTime = allTimes[0];
-      endTime = allTimes[1];
-    } else if (hasFrom) {
-      startTime = allTimes[0];
-      endTime = allTimes[0] + 60;
-    } else if (allTimes.length >= 2) {
-      // Two times without "from" — treat as a range (e.g. "10 am to 12 pm")
-      startTime = allTimes[0];
-      endTime = allTimes[1];
-    } else if (hasAt) {
-      startTime = allTimes[0];
-      endTime = allTimes[0] + 60;
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    if (line.length < 5) continue;
+
+    // Find first colon that is NOT part of a time (e.g. "3:30" should be ignored)
+    let colonIdx = -1;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === ':' && (i === 0 || !/\d/.test(line[i - 1]))) {
+        colonIdx = i;
+        break;
+      }
+    }
+
+    if (colonIdx >= 0) {
+      // === Structured format: "Subject: day list, time–time" ===
+      const beforeColon = line.slice(0, colonIdx).trim().toLowerCase();
+      let subject = null;
+      for (const subj of allSubjects) {
+        if (beforeColon.includes(subj)) { subject = subj; break; }
+      }
+      if (!subject) {
+        const lowerLine = line.toLowerCase();
+        for (const subj of allSubjects) {
+          if (lowerLine.includes(subj)) { subject = subj; break; }
+        }
+      }
+      if (!subject) continue;
+
+      const schedulePart = line.slice(colonIdx + 1).trim();
+      const groups = schedulePart.split(';').map(s => s.trim()).filter(Boolean);
+
+      for (const group of groups) {
+        const days = findDays(group);
+        if (days.length === 0) continue;
+        const times = findAllTimes(group);
+        if (times.length === 0) continue;
+        const paired = pairTimes(times, group);
+        if (!paired) continue;
+
+        for (const day of days) {
+          entries.push({ day, subject, startTime: paired.start, endTime: paired.end, original: line.trim() });
+        }
+      }
     } else {
-      // Bare time — assume 1-hour session at that time
-      startTime = allTimes[0];
-      endTime = allTimes[0] + 60;
-    }
+      // === Natural language format: "I have Subject on Day at time" ===
+      const days = findDays(line);
+      if (days.length === 0) continue;
+      const subjects = findAllSubjects(line);
+      if (subjects.length === 0) continue;
+      const times = findAllTimes(line);
+      if (times.length === 0) continue;
+      const paired = pairTimes(times, line);
+      if (!paired) continue;
 
-    for (const subject of subjects) {
-      for (const day of days) {
-        entries.push({ day, subject, startTime, endTime, original: clause.trim() });
+      for (const subject of subjects) {
+        for (const day of days) {
+          entries.push({ day, subject, startTime: paired.start, endTime: paired.end, original: line.trim() });
+        }
       }
     }
   }
