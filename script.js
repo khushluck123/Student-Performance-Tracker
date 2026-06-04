@@ -1386,17 +1386,55 @@ function generatePlanner() {
 // ===========================
 // PDF Report Generator
 // ===========================
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+const PDF_CDNS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+  'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js'
+];
+const AUTOTABLE_CDNS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
+];
+
+function ensurePDFLib() {
+  if (typeof window.jsPDF !== 'undefined' || typeof window.jspdf !== 'undefined') {
+    return Promise.resolve();
+  }
+  let idx = 0;
+  function tryNext() {
+    if (idx >= PDF_CDNS.length) return Promise.reject(new Error('All CDNs failed'));
+    return loadScript(PDF_CDNS[idx++]).then(() => {
+      if (window.jspdf && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+      // Load autotable
+      let atIdx = 0;
+      function tryAutoTable() {
+        if (atIdx >= AUTOTABLE_CDNS.length) return Promise.resolve();
+        return loadScript(AUTOTABLE_CDNS[atIdx++]).catch(tryAutoTable);
+      }
+      return tryAutoTable();
+    }).catch(tryNext);
+  }
+  return tryNext();
+}
+
 function generatePDF() {
   if (!AppState.results) {
     showToast('No analysis data to export.', 'error');
     return;
   }
 
-  try {
-    if (typeof window.jsPDF === 'undefined' && typeof window.jspdf === 'undefined') {
-      showToast('PDF library not loaded. Check internet connection.', 'error');
-      return;
-    }
+  ensurePDFLib().then(() => {
+    try {
     const jsPDF = window.jsPDF || window.jspdf.jsPDF;
     const doc = new jsPDF('p', 'mm', 'a4');
     const r = AppState.results;
@@ -1581,6 +1619,9 @@ function generatePDF() {
     console.error('PDF generation error:', err);
     showToast('Error generating PDF. Check console for details.', 'error');
   }
+  }).catch(() => {
+    showToast('PDF library not loaded. Check internet connection.', 'error');
+  });
 }
 
 function getBadgeNames(result) {
