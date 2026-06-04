@@ -23,7 +23,8 @@ const AppState = {
   },
   theme: 'light',
   isAnalyzed: false,
-  plannerGenerated: false
+  plannerGenerated: false,
+  routine: null
 };
 
 // ===========================
@@ -99,6 +100,9 @@ const DOM = {
   modalConfirm: $('#modalConfirm'),
   modalCancel: $('#modalCancel'),
   modalClose: $('.modal-close'),
+
+  // Routine Modal (dynamically created)
+  routineForm: null,
 };
 
 // ===========================
@@ -926,6 +930,91 @@ function renderCharts(result) {
 }
 
 // ===========================
+// Routine Modal — Collect Daily Routine
+// ===========================
+function showRoutineModal() {
+  if (!AppState.results) return;
+
+  const r = AppState.results;
+  const prev = AppState.routine || { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
+
+  const body = `
+    <div style="margin-bottom:16px;color:var(--text-secondary);font-size:0.9rem;">
+      Tell us about your daily schedule so we can create a realistic study plan tailored to your routine.
+    </div>
+    <div id="routineForm" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="form-group">
+        <label for="routineWakeUp" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Wake Up Time</label>
+        <input type="time" id="routineWakeUp" value="${prev.wakeUp}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      </div>
+      <div class="form-group">
+        <label for="routineSleep" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Sleep Time</label>
+        <input type="time" id="routineSleep" value="${prev.sleep}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      </div>
+      <div class="form-group">
+        <label for="routineStart" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Study Start Time</label>
+        <input type="time" id="routineStart" value="${prev.startTime}" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      </div>
+      <div class="form-group">
+        <label for="routineStudyLen" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Session Length (min)</label>
+        <input type="number" id="routineStudyLen" value="${prev.studyMins}" min="15" max="120" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      </div>
+      <div class="form-group">
+        <label for="routineBreakLen" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">Break Length (min)</label>
+        <input type="number" id="routineBreakLen" value="${prev.breakMins}" min="5" max="60" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-body);color:var(--text-primary);font-family:var(--font);font-size:0.9rem;">
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:0.8rem;color:var(--text-muted);">
+      <span id="routineSummary">${r.weakCount > 0 ? r.weakCount + ' weak subject(s) to focus on' : 'Maintain your strong performance'}</span>
+    </div>
+  `;
+
+  // Replace modal body content with routine form
+  DOM.modalTitle.textContent = '\u23F0 Your Daily Routine';
+  DOM.modalBody.innerHTML = body;
+  DOM.modalConfirm.textContent = 'Generate Plan';
+  DOM.modalCancel.textContent = 'Skip';
+
+  DOM.modalOverlay.classList.add('active');
+  DOM.modalOverlay.setAttribute('aria-hidden', 'false');
+
+  // Focus first input
+  setTimeout(() => { const el = document.getElementById('routineWakeUp'); if (el) el.focus(); }, 100);
+
+  // Confirm handler
+  DOM.modalConfirm.onclick = () => {
+    const wakeUp = document.getElementById('routineWakeUp')?.value || '06:00';
+    const sleep = document.getElementById('routineSleep')?.value || '22:00';
+    const startTime = document.getElementById('routineStart')?.value || '16:00';
+    const studyMins = parseInt(document.getElementById('routineStudyLen')?.value) || 50;
+    const breakMins = parseInt(document.getElementById('routineBreakLen')?.value) || 10;
+
+    AppState.routine = { wakeUp, sleep, startTime, studyMins, breakMins };
+    DOM.modalOverlay.classList.remove('active');
+    DOM.modalOverlay.setAttribute('aria-hidden', 'true');
+    generatePlanner();
+  };
+
+  // Cancel/Skip handler
+  const skipPlanner = () => {
+    DOM.modalOverlay.classList.remove('active');
+    DOM.modalOverlay.setAttribute('aria-hidden', 'true');
+    if (AppState.routine) {
+      generatePlanner();
+    } else {
+      AppState.routine = { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
+      generatePlanner();
+    }
+  };
+  DOM.modalCancel.onclick = skipPlanner;
+  DOM.modalClose.onclick = skipPlanner;
+  DOM.modalOverlay.onclick = (e) => {
+    if (e.target === DOM.modalOverlay) skipPlanner();
+  };
+  DOM.modalConfirm.focus();
+}
+
+// ===========================
 // Study Planner Generator
 // ===========================
 function generatePlanner() {
@@ -937,11 +1026,33 @@ function generatePlanner() {
   const weakNames = weakSubjects.map(s => s.name);
   const strongNames = r.subjects.filter(s => s.percentage >= 70).map(s => s.name);
   const allNames = r.subjects.map(s => s.name);
+  const routine = AppState.routine || { wakeUp: '06:00', sleep: '22:00', startTime: '16:00', studyMins: 50, breakMins: 10 };
 
-  // Create daily schedule
-  const hours = cls <= 8 ? ['4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'] :
-                cls <= 10 ? ['4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'] :
-                ['4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM'];
+  // Build time slots from routine
+  function timeToMinutes(t) {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  }
+  function minutesToTime(mins) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + period;
+  }
+
+  const startMins = timeToMinutes(routine.startTime);
+  const studyLen = routine.studyMins;
+  const breakLen = routine.breakMins;
+  const sleepMins = timeToMinutes(routine.sleep);
+  const slotCount = Math.min(7, Math.floor((sleepMins - startMins) / (studyLen + breakLen)));
+
+  const hours = [];
+  let current = startMins;
+  for (let i = 0; i < slotCount; i++) {
+    hours.push(minutesToTime(current));
+    current += studyLen + breakLen;
+  }
 
   const plannerHTML = [];
 
@@ -953,21 +1064,34 @@ function generatePlanner() {
     let slotIdx = 0;
     for (let h = 0; h < hours.length; h++) {
       const startTime = hours[h];
-      const endTime = h < hours.length - 1 ? hours[h + 1] : '9:30 PM';
+      const startM = timeToMinutes(routine.startTime) + h * (studyLen + breakLen);
+      const studyEndM = startM + studyLen;
+      const breakEndM = startM + studyLen + breakLen;
+      const studyEnd = minutesToTime(studyEndM);
+      const breakEnd = minutesToTime(breakEndM);
       const isBreak = h % 2 === 1;
-      let activity;
-      if (isBreak) {
-        activity = '\u2615 Break Time - Relax and recharge';
+      let activity, displayEnd, displayTime, isLast;
+      if (h === hours.length - 1) {
+        // Last slot: study only, no break
+        displayEnd = minutesToTime(startM + studyLen);
+        isLast = true;
+        activity = `${'\uD83D\uDCD6'} Study ${allNames[(slotIdx + days.indexOf(day)) % allNames.length]}${weakNames.includes(allNames[(slotIdx + days.indexOf(day)) % allNames.length]) ? ' (Focus Area)' : ''}`;
+        displayTime = `${startTime} - ${displayEnd}`;
+        slotIdx++;
+      } else if (isBreak) {
+        activity = '\u2615 Break Time \u2014 Relax and recharge';
+        displayTime = `${startTime} - ${breakEnd}`;
       } else {
         const subjIdx = (slotIdx + days.indexOf(day)) % allNames.length;
         const subjName = allNames[subjIdx];
         const isWeak = weakNames.includes(subjName);
-        activity = `${isWeak ? '\u26A0\uFE0F ' : ''}Study ${subjName}${isWeak ? ' (Focus Area)' : ''}`;
+        activity = `${isWeak ? '\u26A0\uFE0F ' : '\uD83D\uDCD6 '}Study ${subjName}${isWeak ? ' (Focus Area)' : ''}`;
+        displayTime = `${startTime} - ${studyEnd}`;
         slotIdx++;
       }
       scheduleHTML += `
         <div class="planner-slot">
-          <span class="planner-time">${startTime} - ${endTime}</span>
+          <span class="planner-time">${displayTime}</span>
           <span class="planner-activity">${activity}</span>
         </div>
       `;
@@ -1377,8 +1501,8 @@ DOM.analyzeBtn.addEventListener('click', () => {
 // Back from results
 DOM.backFromResults.addEventListener('click', () => showSection('subjects'));
 
-// Planner
-DOM.generatePlannerBtn.addEventListener('click', generatePlanner);
+// Planner — show routine modal first
+DOM.generatePlannerBtn.addEventListener('click', showRoutineModal);
 DOM.backFromPlanner.addEventListener('click', () => showSection('results'));
 
 // Reports
