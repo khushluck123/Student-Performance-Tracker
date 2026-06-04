@@ -1627,6 +1627,12 @@ function saveReport() {
   const saved = JSON.parse(localStorage.getItem('spa-reports') || '[]');
   saved.push(report);
   localStorage.setItem('spa-reports', JSON.stringify(saved));
+
+  // Enable Reports nav buttons after saving
+  document.querySelectorAll('.nav-btn[data-section="reports"], .mobile-nav-btn[data-section="reports"]').forEach(btn => {
+    btn.disabled = false;
+  });
+
   showToast('Report saved successfully!', 'success');
 }
 
@@ -1665,8 +1671,12 @@ function displaySavedReports() {
     const date = new Date(report.date);
     const displayDate = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     card.innerHTML = `
-      <div class="report-card-title">${report.student.name} - ${report.results.totalPercentage}%</div>
-      <div class="report-card-meta">${displayDate} &middot; Class ${report.student.class} &middot; ${report.results.totalSubjects} subjects</div>
+      <div class="report-card-title">${report.student.name}</div>
+      <div class="report-card-meta">
+        ${report.student.examType || report.student.exam || 'N/A'} &middot;
+        ${report.student.session || 'N/A'} &middot;
+        ${report.student.school || 'N/A'}
+      </div>
       <div class="report-card-actions">
         <button class="btn btn-primary load-report-btn" data-id="${report.id}">Load</button>
         <button class="btn btn-danger delete-report-btn" data-id="${report.id}">Delete</button>
